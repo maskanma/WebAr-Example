@@ -1,4 +1,4 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="uk">
 <head>
   <meta charset="UTF-8" />
@@ -124,8 +124,7 @@
         const audio = new Audio(audioFiles[i]);
         audio.preload = 'auto';
         audio.loop = repeatOptions[i] === "true";
-        const key = patternBarcode[i] === -1 ? patternNames[i] : patternBarcode[i];
-        htmlAudios.set(key, audio);
+        htmlAudios.set(patternBarcode[i] === -1 ? patternNames[i] : patternBarcode[i], audio);
       }
 
       document.getElementById('loader').style.display = 'none';
@@ -137,7 +136,7 @@
           for (let i = 0; i < 3; i++) {
             const key = patternBarcode[i] === -1 ? patternNames[i] : patternBarcode[i];
             const markerVisible = patternBarcode[i] === -1
-              ? arToolkitContext.arController.patternMarkers?.find(p => p?.patternFile === patternNames[i])?.inCurrent
+              ? arToolkitContext.arController.patternMarkers[i]?.inCurrent
               : arToolkitContext.arController.barcodeMarkers[key]?.inCurrent;
 
             const audio = htmlAudios.get(key);
