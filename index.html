@@ -16,7 +16,6 @@
 </head>
 
 <body style="margin: 0; overflow: hidden; font-family: sans-serif;">
-
   <!-- Екран запуску -->
   <div id="access" style="position: absolute; inset: 0; background: black; color: white; display: flex; align-items: center; justify-content: center; z-index: 2; text-align: center;">
     Натисніть на екран для запуску<br>WebAR-буклету «Клавіатура»
@@ -28,6 +27,8 @@
       <img src="data/spin.gif" alt="Loading" style="width: 100px;"><br>Завантаження...
     </div>
   </div>
+
+  <audio id="testAudio" src="Опис Озвучка.ogg" controls style="position:absolute;top:10px;left:10px;z-index:999;"></audio>
 
   <script>
     let readyToPlay = false;
@@ -99,10 +100,7 @@
         scene.add(markerRoot);
         markerRoots.push(markerRoot);
 
-        const isPattern = patternBarcode[i] === -1;
-        const key = isPattern ? patternNames[i] : patternBarcode[i];
-
-        if (isPattern) {
+        if (patternBarcode[i] === -1) {
           new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
             type: 'pattern',
             patternUrl: patternNames[i],
@@ -127,7 +125,9 @@
         const audio = new Audio(audioFiles[i]);
         audio.preload = 'auto';
         audio.loop = repeatOptions[i] === "true";
-        htmlAudios.set(key, audio);
+        htmlAudios.set(patternBarcode[i] === -1 ? patternNames[i] : patternBarcode[i], audio);
+
+        console.log("Loaded audio for:", patternBarcode[i] === -1 ? patternNames[i] : patternBarcode[i]);
       }
 
       document.getElementById('loader').style.display = 'none';
@@ -137,21 +137,13 @@
           arToolkitContext.update(arToolkitSource.domElement);
 
           for (let i = 0; i < 3; i++) {
-            const isPattern = patternBarcode[i] === -1;
-            const key = isPattern ? patternNames[i] : patternBarcode[i];
-
-          let markerVisible = false;
-
-if (isPattern) {
-  const pattIndex = arToolkitContext.arController.patternMarkerUrls?.indexOf(patternNames[i]);
-  if (pattIndex !== -1 && pattIndex !== undefined) {
-    markerVisible = arToolkitContext.arController.patternMarkers?.[pattIndex]?.inCurrent;
-  }
-} else {
-  markerVisible = arToolkitContext.arController.barcodeMarkers?.[patternBarcode[i]]?.inCurrent;
-}
+            const key = patternBarcode[i] === -1 ? patternNames[i] : patternBarcode[i];
+            const markerVisible = patternBarcode[i] === -1
+              ? arToolkitContext.arController.patternMarkers?.[i]?.inCurrent
+              : arToolkitContext.arController.barcodeMarkers?.[patternBarcode[i]]?.inCurrent;
 
             const audio = htmlAudios.get(key);
+            console.log("Marker:", key, "Visible:", markerVisible);
 
             if (markerVisible && readyToPlay) {
               if (currentAudio !== audio) {
@@ -159,7 +151,11 @@ if (isPattern) {
                   currentAudio.pause();
                   currentAudio.currentTime = 0;
                 }
-                audio.play();
+                audio.play().then(() => {
+                  console.log("Audio is playing for:", key);
+                }).catch(e => {
+                  console.error("Audio play error for", key, e);
+                });
                 currentAudio = audio;
               }
             } else if (!markerVisible && currentAudio === audio) {
