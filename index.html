@@ -28,44 +28,14 @@
     </div>
   </div>
 
-  <audio id="testAudio" src="Опис Озвучка.ogg" controls style="position:absolute;top:10px;left:10px;z-index:999;"></audio>
-
   <script>
     let readyToPlay = false;
     let currentAudio = null;
-
-    const patternNames = ["", "", "pattern.patt"];
-    const patternBarcode = [1, 2, -1];
-    const modes = ["image", "image", "image"];
-    const modelFiles = ["", "", ""];
-    const imageFiles = ["Screenshot_1.jpg", "Screenshot_2.jpg", "Screenshot_3.jpg"];
-    const videoFiles = ["", "", ""];
-    const audioFiles = ["ПІБ Озвучка.ogg", "Автор Озвучка.ogg", "Опис Озвучка.ogg"];
-    const repeatOptions = ["false", "false", "false"];
-
-    let htmlAudios = new Map();
 
     document.getElementById('access').addEventListener('click', () => {
       readyToPlay = true;
       document.getElementById('access').remove();
       document.getElementById('loader').style.display = 'block';
-
-      // Примусове "розблокування" аудіо через user gesture
-      audioFiles.forEach((src, i) => {
-        const a = new Audio(src);
-        a.preload = 'auto';
-        a.volume = 0;
-        a.play().then(() => {
-          a.pause();
-          a.currentTime = 0;
-          a.volume = 1;
-          htmlAudios.set(i, a);
-          console.log(`Audio ${src} primed`);
-        }).catch(err => {
-          console.warn(`Audio ${src} not primed`, err);
-        });
-      });
-
       startAR();
     });
 
@@ -73,6 +43,17 @@
       let scene, camera, renderer, clock;
       let arToolkitSource, arToolkitContext;
       let markerRoots = [];
+
+      const patternNames = ["", "", "pattern.patt"];
+      const patternBarcode = [1, 2, -1];
+      const modes = ["image", "image", "image"];
+      const modelFiles = ["", "", ""];
+      const imageFiles = ["Screenshot_1.jpg", "Screenshot_2.jpg", "Screenshot_3.jpg"];
+      const videoFiles = ["", "", ""];
+      const audioFiles = ["ПІБ Озвучка.ogg", "Автор Озвучка.ogg", "Опис Озвучка.ogg"];
+      const repeatOptions = ["false", "false", "false"];
+
+      let htmlAudios = new Map();
 
       scene = new THREE.Scene();
       camera = new THREE.Camera();
@@ -138,6 +119,11 @@
           mesh.rotation.x = -Math.PI / 2;
           markerRoot.add(mesh);
         });
+
+        const audio = new Audio(audioFiles[i]);
+        audio.preload = 'auto';
+        audio.loop = repeatOptions[i] === "true";
+        htmlAudios.set(patternBarcode[i] === -1 ? patternNames[i] : patternBarcode[i], audio);
       }
 
       document.getElementById('loader').style.display = 'none';
@@ -147,16 +133,12 @@
           arToolkitContext.update(arToolkitSource.domElement);
 
           for (let i = 0; i < 3; i++) {
-            const isPattern = patternBarcode[i] === -1;
-            let markerVisible;
-            if (isPattern) {
-              const pattIndex = arToolkitContext.arController.patternMarkerUrls.indexOf(patternNames[i]);
-              markerVisible = arToolkitContext.arController.patternMarkers?.[pattIndex]?.inCurrent;
-            } else {
-              markerVisible = arToolkitContext.arController.barcodeMarkers?.[patternBarcode[i]]?.inCurrent;
-            }
+            const key = patternBarcode[i] === -1 ? patternNames[i] : patternBarcode[i];
+            const markerVisible = patternBarcode[i] === -1
+              ? arToolkitContext.arController.patternMarkers?.[i]?.inCurrent
+              : arToolkitContext.arController.barcodeMarkers?.[key]?.inCurrent;
 
-            const audio = htmlAudios.get(i);
+            const audio = htmlAudios.get(key);
 
             if (markerVisible && readyToPlay) {
               if (currentAudio !== audio) {
@@ -164,11 +146,7 @@
                   currentAudio.pause();
                   currentAudio.currentTime = 0;
                 }
-                audio.play().then(() => {
-                  console.log("Audio is playing for:", i);
-                }).catch(e => {
-                  console.error("Audio play error for", i, e);
-                });
+                audio.play();
                 currentAudio = audio;
               }
             } else if (!markerVisible && currentAudio === audio) {
