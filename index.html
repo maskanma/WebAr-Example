@@ -44,13 +44,18 @@
       let scene, camera, renderer, clock;
       let arToolkitSource, arToolkitContext;
       let markerRoots = [];
+
       const patternNames = ["", "", "pattern.patt"];
       const patternBarcode = [1, 2, -1];
-      let imageFiles = ["Screenshot_1.jpg", "Screenshot_2.jpg", "Screenshot_3.jpg"];
-      let audioFiles = ["ПІБ Озвучка.ogg", "Автор Озвучка.ogg", "Опис Озвучка.ogg"];
+      const modes = ["image", "image", "image"];
+      const modelFiles = ["", "", ""];
+      const imageFiles = ["Screenshot_1.jpg", "Screenshot_2.jpg", "Screenshot_3.jpg"];
+      const videoFiles = ["", "", ""];
+      const audioFiles = ["ПІБ Озвучка.ogg", "Автор Озвучка.ogg", "Опис Озвучка.ogg"];
+      const repeatOptions = ["false", "false", "false"];
+
       let htmlAudios = new Map();
 
-      // THREE.js setup
       scene = new THREE.Scene();
       camera = new THREE.Camera();
       scene.add(camera);
@@ -65,7 +70,6 @@
 
       clock = new THREE.Clock();
 
-      // AR.js source
       arToolkitSource = new THREEx.ArToolkitSource({ sourceType: 'webcam' });
       arToolkitSource.init(() => onResize());
       window.addEventListener('resize', () => onResize());
@@ -78,7 +82,6 @@
         }
       }
 
-      // AR.js context
       arToolkitContext = new THREEx.ArToolkitContext({
         cameraParametersUrl: 'data/camera_para.dat',
         detectionMode: 'mono_and_matrix',
@@ -91,19 +94,24 @@
         camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
       });
 
-      // Контент для кожного маркера
       for (let i = 0; i < 3; i++) {
         const markerRoot = new THREE.Group();
         scene.add(markerRoot);
         markerRoots.push(markerRoot);
 
-        // Прив'язка до маркера
-        new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
-          type: 'barcode',
-          barcodeValue: barcodeValues[i]
-        });
+        if (patternBarcode[i] === -1) {
+          new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
+            type: 'pattern',
+            patternUrl: patternNames[i],
+            size: 1
+          });
+        } else {
+          new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
+            type: 'barcode',
+            barcodeValue: patternBarcode[i]
+          });
+        }
 
-        // Зображення
         const textureLoader = new THREE.TextureLoader();
         textureLoader.load(imageFiles[i], texture => {
           const geometry = new THREE.PlaneBufferGeometry(1, 1);
@@ -113,27 +121,27 @@
           markerRoot.add(mesh);
         });
 
-        // Аудіо (HTML Audio)
         const audio = new Audio(audioFiles[i]);
         audio.preload = 'auto';
-        audio.loop = false;
-        htmlAudios.set(barcodeValues[i], audio);
+        audio.loop = repeatOptions[i] === "true";
+        htmlAudios.set(patternBarcode[i] === -1 ? patternNames[i] : patternBarcode[i], audio);
       }
 
       document.getElementById('loader').style.display = 'none';
 
-      // Анімація
       function update() {
         if (arToolkitSource.ready) {
           arToolkitContext.update(arToolkitSource.domElement);
 
-          // Перевірка активних маркерів
-          for (let i = 0; i < barcodeValues.length; i++) {
-            const id = barcodeValues[i];
-            const isVisible = arToolkitContext.arController.barcodeMarkers[id]?.inCurrent;
-            const audio = htmlAudios.get(id);
+          for (let i = 0; i < 3; i++) {
+            const key = patternBarcode[i] === -1 ? patternNames[i] : patternBarcode[i];
+            const markerVisible = patternBarcode[i] === -1
+              ? arToolkitContext.arController.patternMarkers[i]?.inCurrent
+              : arToolkitContext.arController.barcodeMarkers[key]?.inCurrent;
 
-            if (isVisible && readyToPlay) {
+            const audio = htmlAudios.get(key);
+
+            if (markerVisible && readyToPlay) {
               if (currentAudio !== audio) {
                 if (currentAudio && !currentAudio.paused) {
                   currentAudio.pause();
@@ -142,7 +150,7 @@
                 audio.play();
                 currentAudio = audio;
               }
-            } else if (!isVisible && currentAudio === audio) {
+            } else if (!markerVisible && currentAudio === audio) {
               currentAudio.pause();
               currentAudio.currentTime = 0;
               currentAudio = null;
