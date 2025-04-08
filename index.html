@@ -99,7 +99,10 @@
         scene.add(markerRoot);
         markerRoots.push(markerRoot);
 
-        if (patternBarcode[i] === -1) {
+        const isPattern = patternBarcode[i] === -1;
+        const key = isPattern ? patternNames[i] : patternBarcode[i];
+
+        if (isPattern) {
           new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
             type: 'pattern',
             patternUrl: patternNames[i],
@@ -124,7 +127,7 @@
         const audio = new Audio(audioFiles[i]);
         audio.preload = 'auto';
         audio.loop = repeatOptions[i] === "true";
-        htmlAudios.set(patternBarcode[i] === -1 ? patternNames[i] : patternBarcode[i], audio);
+        htmlAudios.set(key, audio);
       }
 
       document.getElementById('loader').style.display = 'none';
@@ -134,8 +137,10 @@
           arToolkitContext.update(arToolkitSource.domElement);
 
           for (let i = 0; i < 3; i++) {
-            const key = patternBarcode[i] === -1 ? patternNames[i] : patternBarcode[i];
-            const markerVisible = patternBarcode[i] === -1
+            const isPattern = patternBarcode[i] === -1;
+            const key = isPattern ? patternNames[i] : patternBarcode[i];
+
+            const markerVisible = isPattern
               ? arToolkitContext.arController.patternMarkers?.[i]?.inCurrent
               : arToolkitContext.arController.barcodeMarkers?.[key]?.inCurrent;
 
