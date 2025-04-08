@@ -140,9 +140,16 @@
             const isPattern = patternBarcode[i] === -1;
             const key = isPattern ? patternNames[i] : patternBarcode[i];
 
-            const markerVisible = isPattern
-              ? arToolkitContext.arController.patternMarkers?.[i]?.inCurrent
-              : arToolkitContext.arController.barcodeMarkers?.[key]?.inCurrent;
+          let markerVisible = false;
+
+if (isPattern) {
+  const pattIndex = arToolkitContext.arController.patternMarkerUrls?.indexOf(patternNames[i]);
+  if (pattIndex !== -1 && pattIndex !== undefined) {
+    markerVisible = arToolkitContext.arController.patternMarkers?.[pattIndex]?.inCurrent;
+  }
+} else {
+  markerVisible = arToolkitContext.arController.barcodeMarkers?.[patternBarcode[i]]?.inCurrent;
+}
 
             const audio = htmlAudios.get(key);
 
