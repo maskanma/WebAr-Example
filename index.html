@@ -18,14 +18,12 @@
     <script src="threex/threex-armarkercontrols.js"></script>
 </head>
 
-<body style='margin : 0px; overflow: hidden; font-family: Monospace; user-select: none; pointer-events: none;'>
-
+<body style='margin: 0px; overflow: hidden; font-family: Monospace; user-select: none; pointer-events: none;'>
     <div id="access" style="top: 0; left: 0; right:0; bottom: 0; background: #000; position: absolute; user-select: all; pointer-events: all;">
         <div id="text-wrapper" style="top: 50%; left: 50%; position: absolute; color: #fff; transform: translate(-50%, -50%); text-align: center;
                 text-transform: uppercase; font-family: Arial, Helvetica, sans-serif; font-weight: 400; line-height: 1.5em; font-size: large; white-space: nowrap;
                 user-select: none; pointer-events: none;">
-            Натисніть на екран для отримання доступу
-            <br>
+            Натисніть на екран для отримання доступу<br>
             до WebAR-буклету «Клавіатура»
         </div>
     </div>
@@ -45,38 +43,40 @@
         const loader = document.getElementById('loader');
 
         function initiateExperience() {
-            var patternIdOffset = 10000000000;
-            var arToolkitSource, arToolkitContext;
-            var scene, camera, renderer, clock, deltaTime, totalTime;
-            var markerRoot, mainContainer;
-            var contentPromises = [];
-            let contentInitialized = false;
+            let patternIdOffset = 10000000000;
+            let scene, camera, renderer, clock, deltaTime, totalTime;
+            let arToolkitSource, arToolkitContext;
+            let mainContainer;
             let barcodesSound = new Map();
             let patternsSound = new Map();
-            let barcodesID = [];
-            let patternsID = [];
-            let controller;
+            let barcodesID = [], patternsID = [];
+
+            const patternNames = ["", "", "pattern.patt"];
+            const patternBarcode = [1, 2, -1];
+            const modes = ["image", "image", "image"];
+            const modelFiles = ["", "", ""];
+            const imageFiles = ["Screenshot_1.jpg", "Screenshot_2.jpg", "Screenshot_3.jpg"];
+            const audioFiles = ["ПІБ Озучка.ogg", "Автор Озучка.ogg", "Опис Озучка.ogg"];
+            const repeatOptions = ["false", "false", "false"];
 
             initialize();
             animate();
 
             function initialize() {
                 scene = new THREE.Scene();
+                camera = new THREE.Camera();
+                scene.add(camera);
+
                 let ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
                 scene.add(ambientLight);
 
-                camera = new THREE.Camera();
-                scene.add(camera);
                 const listener = new THREE.AudioListener();
                 camera.add(listener);
                 const audioLoader = new THREE.AudioLoader();
 
                 renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-                renderer.setClearColor(new THREE.Color('lightgrey'), 0)
+                renderer.setClearColor(new THREE.Color('lightgrey'), 0);
                 renderer.setSize(640, 480);
-                renderer.domElement.style.position = 'absolute'
-                renderer.domElement.style.top = '0px'
-                renderer.domElement.style.left = '0px'
                 document.body.appendChild(renderer.domElement);
 
                 clock = new THREE.Clock();
@@ -84,17 +84,16 @@
                 totalTime = 0;
 
                 arToolkitSource = new THREEx.ArToolkitSource({ sourceType: 'webcam' });
+                arToolkitSource.init(() => onResize());
+                window.addEventListener('resize', onResize);
 
                 function onResize() {
-                    arToolkitSource.onResize()
-                    arToolkitSource.copySizeTo(renderer.domElement)
+                    arToolkitSource.onResize();
+                    arToolkitSource.copySizeTo(renderer.domElement);
                     if (arToolkitContext.arController !== null) {
-                        arToolkitSource.copySizeTo(arToolkitContext.arController.canvas)
+                        arToolkitSource.copySizeTo(arToolkitContext.arController.canvas);
                     }
                 }
-
-                arToolkitSource.init(() => { onResize() });
-                window.addEventListener('resize', () => { onResize() });
 
                 arToolkitContext = new THREEx.ArToolkitContext({
                     cameraParametersUrl: 'data/camera_para.dat',
@@ -110,59 +109,47 @@
                 });
 
                 mainContainer = new THREE.Group();
-
-                const patternNames = ["", "", "pattern.patt"];
-                const patternBarcode = [1, 2, -1];
-                const modes = ["image", "image", "image"];
-                const modelFiles = ["", "", ""];
-                const imageFiles = ["Screenshot_1.jpg", "Screenshot_2.png", "Screenshot_3.jpg"];
-                const videoFiles = ["", "", ""];
-                const audioFiles = ["ПІБ Озвучка.ogg", "Автор Озвучка.ogg", "Опис Озвучка.ogg"];
-                const repeatOptions = ["false", "false", "false"];
-
-                const markerRoots = [];
-                for (let i = 0; i < 3; i++) markerRoots[i] = new THREE.Group();
+                const markerRoots = [new THREE.Group(), new THREE.Group(), new THREE.Group()];
 
                 for (let i = 0; i < 3; i++) {
                     mainContainer.add(markerRoots[i]);
 
                     if (patternBarcode[i] === -1) {
-                        let markerControls = new THREEx.ArMarkerControls(arToolkitContext, markerRoots[i], {
+                        new THREEx.ArMarkerControls(arToolkitContext, markerRoots[i], {
                             type: 'pattern',
                             patternUrl: patternNames[i],
                             size: 1 + (i + 1) / patternIdOffset
                         });
                         patternsID.push(patternNames[i]);
                     } else {
-                        let markerControls = new THREEx.ArMarkerControls(arToolkitContext, markerRoots[i], {
-                            type: "barcode",
-                            barcodeValue: patternBarcode[i],
+                        new THREEx.ArMarkerControls(arToolkitContext, markerRoots[i], {
+                            type: 'barcode',
+                            barcodeValue: patternBarcode[i]
                         });
                         barcodesID.push(patternBarcode[i]);
                     }
 
-                    // Додаємо зображення
+                    // Додавання зображення
                     if (modes[i] === 'image' && imageFiles[i]) {
                         const loader = new THREE.TextureLoader();
                         loader.load(imageFiles[i], (texture) => {
-                            let ratio = texture.image.naturalWidth / texture.image.naturalHeight;
-                            let geometry = texture.image.naturalHeight < texture.image.naturalWidth ?
-                                new THREE.PlaneBufferGeometry(ratio, 1) :
-                                new THREE.PlaneBufferGeometry(1, 1 / ratio);
-                            let material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
-                            let mesh = new THREE.Mesh(geometry, material);
+                            const ratio = texture.image.naturalWidth / texture.image.naturalHeight;
+                            const geometry = new THREE.PlaneBufferGeometry(ratio, 1);
+                            const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+                            const mesh = new THREE.Mesh(geometry, material);
                             mesh.rotation.x = -Math.PI / 2;
                             markerRoots[i].add(mesh);
                         });
                     }
 
-                    // Завантажуємо аудіо
+                    // Додавання аудіо
                     if (audioFiles[i]) {
-                        audioLoader.load(audioFiles[i], function (buffer) {
-                            let sound = new THREE.Audio(listener);
+                        audioLoader.load(audioFiles[i], (buffer) => {
+                            const sound = new THREE.Audio(listener);
                             sound.setBuffer(buffer);
                             sound.setLoop(false);
                             sound.setVolume(1.0);
+
                             if (patternBarcode[i] === -1) {
                                 patternsSound.set(patternNames[i], sound);
                             } else {
@@ -180,27 +167,24 @@
                 deltaTime = clock.getDelta();
                 totalTime += deltaTime;
                 update();
-                render();
+                renderer.render(scene, camera);
             }
 
             function update() {
                 if (arToolkitSource.ready !== false) {
                     arToolkitContext.update(arToolkitSource.domElement);
-
-                    // Відтворення звуку для pattern.patt (наприклад, зірка)
-                    patternsID.forEach((pattName, index) => {
-                        if (arToolkitContext.arController.patternMarkers[index]?.inCurrent) {
-                            const sound = patternsSound.get(pattName);
-                            if (sound && !sound.isPlaying) {
-                                sound.play();
-                            }
-                        }
-                    });
                 }
-            }
 
-            function render() {
-                renderer.render(scene, camera);
+                // Відтворення аудіо для pattern.patt
+                patternsID.forEach((pattName, index) => {
+                    const isVisible = arToolkitContext.arController.patternMarkers[index]?.inCurrent;
+                    if (isVisible) {
+                        const sound = patternsSound.get(pattName);
+                        if (sound && !sound.isPlaying) {
+                            sound.play();
+                        }
+                    }
+                });
             }
         }
 
