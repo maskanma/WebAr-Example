@@ -44,8 +44,7 @@
       let scene, camera, renderer, clock;
       let arToolkitSource, arToolkitContext;
       let markerRoots = [];
-     const patternNames = ["", "", "pattern.patt"];
-const patternBarcode = [1, 2, -1];
+      let barcodeValues = [1, 2, 3];
       let imageFiles = ["Screenshot_1.jpg", "Screenshot_2.jpg", "Screenshot_3.jpg"];
       let audioFiles = ["ПІБ Озвучка.ogg", "Автор Озвучка.ogg", "Опис Озвучка.ogg"];
       let htmlAudios = new Map();
@@ -98,29 +97,9 @@ const patternBarcode = [1, 2, -1];
         markerRoots.push(markerRoot);
 
         // Прив'язка до маркера
-        // Прив'язка до маркера (barcode або pattern)
-if (patternBarcode[i] === -1) {
-  new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
-    type: 'pattern',
-    patternUrl: patternNames[i],
-    size: 1
-  });
-} else {
-if (patternBarcode[i] === -1) {
-  new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
-    type: 'pattern',
-    patternUrl: patternNames[i],
-    size: 1
-  });
-} else {
-  new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
-    type: 'barcode',
-    barcodeValue: patternBarcode[i]
-  });
-}
-
-}
-
+        new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
+          type: 'barcode',
+          barcodeValue: barcodeValues[i]
         });
 
         // Зображення
