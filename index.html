@@ -1,19 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uk">
 <head>
-  <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-  <meta charset="UTF-8">
-  <title>WebAR Template</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+  <title>WebAR Буклет</title>
 
-  <!-- Three.js and Loaders -->
+  <!-- Three.js та бібліотеки -->
   <script src="js/three.js"></script>
   <script src="js/tween.umd.js"></script>
-  <script src="loaders/GLTFLoader.js"></script>
   <script src="loaders/GLTF2Loader.js"></script>
-  <script src="loaders/MTLLoader.js"></script>
-  <script src="loaders/OBJLoader.js"></script>
 
-  <!-- AR.js & Threex -->
+  <!-- JSARToolkit + Threex -->
   <script src="jsartoolkit5/artoolkit.min.js"></script>
   <script src="jsartoolkit5/artoolkit.api.js"></script>
   <script src="threex/threex-artoolkitsource.js"></script>
@@ -22,186 +19,146 @@
   <script src="threex/threex-armarkercontrols.js"></script>
 </head>
 
-<body style="margin:0; overflow:hidden; font-family:Monospace; user-select:none; pointer-events:none;">
+<body style="margin: 0; overflow: hidden; font-family: sans-serif;">
 
-  <div id="access" style="position: absolute; inset: 0; background: #000; user-select: all; pointer-events: all;">
-    <div id="text-wrapper" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center;">
-      Натисніть на екран для отримання доступу<br>
-      до WebAR-буклету «Клавіатура»
-    </div>
+  <!-- Початковий екран -->
+  <div id="access" style="position: absolute; inset: 0; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; text-align: center; z-index: 2;">
+    Натисніть на екран для запуску<br>WebAR-буклету "Клавіатура"
   </div>
 
-  <div id="loader" style="position: absolute; inset: 0; background: white; display: none;">
+  <!-- Лоадер -->
+  <div id="loader" style="position: absolute; inset: 0; background: #fff; display: none; z-index: 1;">
     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-      <img src="data/spin.gif" alt="Loading..." style="width: 130px; height: 130px;"><br>
-      Loading...
+      <img src="data/spin.gif" alt="Loading..." style="width: 130px; height: 130px;"><br>Завантаження...
     </div>
   </div>
 
   <script>
-    const access = document.getElementById('access');
-    const loader = document.getElementById('loader');
+    let readyToPlay = false;
 
-    access.addEventListener('click', () => {
+    document.getElementById('access').addEventListener('click', () => {
+      readyToPlay = true;
       initiateExperience();
-      document.body.removeChild(access);
-      loader.style.display = 'block';
+      document.getElementById('access').remove();
+      document.getElementById('loader').style.display = 'block';
     });
 
     function initiateExperience() {
       let scene, camera, renderer, clock, deltaTime, totalTime;
       let arToolkitSource, arToolkitContext;
-      let mainContainer, markerRoot, controller;
-      let audioContent = [];
-      let contentPromises = [];
+      let mainContainer;
       let contentInitialized = false;
       let barcodesSound = new Map();
-      let patternsSound = new Map();
-      let barcodesID = [];
-      let patternsID = [];
-      let patternIdOffset = 10000000000;
-      let mesh1, mesh2, mesh11;
+      let barcodesID = [1, 2, 3];
+      let audioLoader = new THREE.AudioLoader();
+      let listener = new THREE.AudioListener();
 
-      const listener = new THREE.AudioListener();
-      const audioLoader = new THREE.AudioLoader();
+      // Імена файлів
+      const images = ["Screenshot_1.jpg", "Screenshot_2.jpg", "Screenshot_3.jpg"];
+      const audios = ["ПІБ Озвучка.ogg", "Автор Озвучка.ogg", "Опис Озвучка.ogg"];
+      let contentPromises = [];
 
-      const patternNames = ["", "", ""];
-      const patternBarcode = [1, 2, 3];
-      const modes = ["image", "image", "image"];
-      const modelFiles = ["", "", ""];
-      const imageFiles = ["Screenshot_1.jpg", "Screenshot_2.jpg", "Screenshot_3.jpg"];
-      const videoFiles = ["", "", ""];
-      const audioFiles = ["ПІБ Озвучка.ogg", "Автор Озвучка.ogg", "Опис Озвучка.ogg"];
-      const repeatOptions = ["false", "false", "false"];
-      const markerRoots = [new THREE.Group(), new THREE.Group(), new THREE.Group()];
+      scene = new THREE.Scene();
 
-      initialize();
-      animate();
+      camera = new THREE.Camera();
+      scene.add(camera);
+      camera.add(listener);
 
-      function initialize() {
-        scene = new THREE.Scene();
-        camera = new THREE.Camera();
-        scene.add(camera);
-        camera.add(listener);
+      let ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+      scene.add(ambientLight);
 
-        let ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
-        scene.add(ambientLight);
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setClearColor(new THREE.Color('lightgrey'), 0);
+      renderer.setSize(640, 480);
+      renderer.domElement.style.position = 'absolute';
+      document.body.appendChild(renderer.domElement);
 
-        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setClearColor(new THREE.Color('lightgrey'), 0);
-        renderer.setSize(640, 480);
-        renderer.domElement.style.position = 'absolute';
-        document.body.appendChild(renderer.domElement);
+      clock = new THREE.Clock();
+      deltaTime = 0;
+      totalTime = 0;
 
-        clock = new THREE.Clock();
-        deltaTime = 0;
-        totalTime = 0;
+      arToolkitSource = new THREEx.ArToolkitSource({ sourceType: 'webcam' });
 
-        arToolkitSource = new THREEx.ArToolkitSource({ sourceType: 'webcam' });
-
-        function onResize() {
-          arToolkitSource.onResize();
-          arToolkitSource.copySizeTo(renderer.domElement);
-          if (arToolkitContext.arController !== null) {
-            arToolkitSource.copySizeTo(arToolkitContext.arController.canvas);
-          }
+      function onResize() {
+        arToolkitSource.onResize();
+        arToolkitSource.copySizeTo(renderer.domElement);
+        if (arToolkitContext.arController) {
+          arToolkitSource.copySizeTo(arToolkitContext.arController.canvas);
         }
-
-        arToolkitSource.init(() => onResize());
-        window.addEventListener('resize', () => onResize());
-
-        arToolkitContext = new THREEx.ArToolkitContext({
-          cameraParametersUrl: 'data/camera_para.dat',
-          detectionMode: 'mono_and_matrix',
-          matrixCodeType: "3x3",
-          maxDetectionRate: 60,
-          canvasWidth: 640,
-          canvasHeight: 480
-        });
-
-        arToolkitContext.init(() => {
-          camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
-        });
-
-        mainContainer = new THREE.Group();
-
-        for (let i = 0; i < 3; i++) {
-          let root = markerRoots[i];
-          mainContainer.add(root);
-
-          if (patternBarcode[i] === -1) {
-            new THREEx.ArMarkerControls(arToolkitContext, root, {
-              type: 'pattern',
-              patternUrl: patternNames[i],
-              size: 1 + (i + 1) / patternIdOffset
-            });
-            patternsID.push(patternNames[i]);
-          } else {
-            new THREEx.ArMarkerControls(arToolkitContext, root, {
-              type: "barcode",
-              barcodeValue: patternBarcode[i]
-            });
-            barcodesID.push(patternBarcode[i]);
-          }
-
-          switch (modes[i]) {
-            case 'image':
-              if (imageFiles[i]) {
-                contentPromises.push(new Promise(resolve => {
-                  const loader = new THREE.TextureLoader();
-                  loader.load(`${imageFiles[i]}`, texture => {
-                    const ratio = texture.image.width / texture.image.height;
-                    const geometry = texture.image.height < texture.image.width
-                      ? new THREE.PlaneBufferGeometry(ratio, 1)
-                      : new THREE.PlaneBufferGeometry(1, 1 / ratio);
-                    const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
-                    mesh1 = new THREE.Mesh(geometry, material);
-                    mesh1.rotation.x = -Math.PI / 2;
-                    root.add(mesh1);
-                    resolve(imageFiles[i]);
-                  });
-                }));
-              }
-              break;
-
-            default:
-              mesh11 = new THREE.Mesh(new THREE.PlaneBufferGeometry(1, 1),
-                new THREE.MeshBasicMaterial({ color: '#fff' }));
-              mesh11.rotation.x = -Math.PI / 2;
-              root.add(mesh11);
-          }
-
-          if (audioFiles[i]) {
-            contentPromises.push(new Promise((resolve) => {
-              audioLoader.load(`${audioFiles[i]}`, buffer => {
-                const sound = new THREE.Audio(listener);
-                sound.setBuffer(buffer);
-                if (repeatOptions[i] === "true") {
-                  sound.setLoop(true);
-                }
-                if (patternBarcode[i] === -1) {
-                  patternsSound.set(i, sound);
-                } else {
-                  barcodesSound.set(patternBarcode[i], sound);
-                }
-                resolve(sound);
-              });
-            }));
-          }
-        }
-
-        Promise.all(contentPromises).then(() => {
-          console.log('Content loaded');
-          contentInitialized = true;
-          loader.style.opacity = '0';
-        });
-
-        scene.add(mainContainer);
       }
 
+      arToolkitSource.init(onResize);
+      window.addEventListener('resize', onResize);
+
+      arToolkitContext = new THREEx.ArToolkitContext({
+        cameraParametersUrl: 'data/camera_para.dat',
+        detectionMode: 'mono_and_matrix',
+        matrixCodeType: "3x3",
+        canvasWidth: 640,
+        canvasHeight: 480
+      });
+
+      arToolkitContext.init(() => {
+        camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+      });
+
+      mainContainer = new THREE.Group();
+      scene.add(mainContainer);
+
+      // Створення маркерів і контенту
+      for (let i = 0; i < 3; i++) {
+        let markerRoot = new THREE.Group();
+        mainContainer.add(markerRoot);
+
+        new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
+          type: "barcode",
+          barcodeValue: barcodesID[i]
+        });
+
+        // Додавання зображення
+        let loader = new THREE.TextureLoader();
+        loader.load(images[i], texture => {
+          let geometry = new THREE.PlaneBufferGeometry(1, 1);
+          let material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+          let mesh = new THREE.Mesh(geometry, material);
+          mesh.rotation.x = -Math.PI / 2;
+          markerRoot.add(mesh);
+        });
+
+        // Завантаження звуку
+        contentPromises.push(new Promise((resolve) => {
+          audioLoader.load(audios[i], buffer => {
+            const sound = new THREE.Audio(listener);
+            sound.setBuffer(buffer);
+            sound.setLoop(false);
+            barcodesSound.set(barcodesID[i], sound);
+            resolve();
+          });
+        }));
+      }
+
+      Promise.all(contentPromises).then(() => {
+        contentInitialized = true;
+        document.getElementById('loader').style.display = 'none';
+      });
+
       function update() {
-        if (arToolkitSource.ready !== false) {
-          arToolkitContext.update(arToolkitSource.domElement);
+        if (!arToolkitSource.ready) return;
+        arToolkitContext.update(arToolkitSource.domElement);
+
+        if (contentInitialized && readyToPlay) {
+          for (let id of barcodesID) {
+            let sound = barcodesSound.get(id);
+            let isVisible = arToolkitContext.arController.barcodeMarkers[id]?.inCurrent;
+
+            if (sound) {
+              if (isVisible && !sound.isPlaying) {
+                sound.play();
+              } else if (!isVisible && sound.isPlaying) {
+                sound.stop();
+              }
+            }
+          }
         }
       }
 
@@ -216,8 +173,9 @@
         update();
         render();
       }
+
+      animate();
     }
   </script>
-
 </body>
 </html>
