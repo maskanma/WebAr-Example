@@ -34,10 +34,38 @@
     let readyToPlay = false;
     let currentAudio = null;
 
+    const patternNames = ["", "", "pattern.patt"];
+    const patternBarcode = [1, 2, -1];
+    const modes = ["image", "image", "image"];
+    const modelFiles = ["", "", ""];
+    const imageFiles = ["Screenshot_1.jpg", "Screenshot_2.jpg", "Screenshot_3.jpg"];
+    const videoFiles = ["", "", ""];
+    const audioFiles = ["ПІБ Озвучка.ogg", "Автор Озвучка.ogg", "Опис Озвучка.ogg"];
+    const repeatOptions = ["false", "false", "false"];
+
+    let htmlAudios = new Map();
+
     document.getElementById('access').addEventListener('click', () => {
       readyToPlay = true;
       document.getElementById('access').remove();
       document.getElementById('loader').style.display = 'block';
+
+      // Примусове "розблокування" аудіо через user gesture
+      audioFiles.forEach((src, i) => {
+        const a = new Audio(src);
+        a.preload = 'auto';
+        a.volume = 0;
+        a.play().then(() => {
+          a.pause();
+          a.currentTime = 0;
+          a.volume = 1;
+          htmlAudios.set(i, a);
+          console.log(`Audio ${src} primed`);
+        }).catch(err => {
+          console.warn(`Audio ${src} not primed`, err);
+        });
+      });
+
       startAR();
     });
 
@@ -45,17 +73,6 @@
       let scene, camera, renderer, clock;
       let arToolkitSource, arToolkitContext;
       let markerRoots = [];
-
-      const patternNames = ["", "", "pattern.patt"];
-      const patternBarcode = [1, 2, -1];
-      const modes = ["image", "image", "image"];
-      const modelFiles = ["", "", ""];
-      const imageFiles = ["Screenshot_1.jpg", "Screenshot_2.jpg", "Screenshot_3.jpg"];
-      const videoFiles = ["", "", ""];
-      const audioFiles = ["ПІБ Озвучка.ogg", "Автор Озвучка.ogg", "Опис Озвучка.ogg"];
-      const repeatOptions = ["false", "false", "false"];
-
-      let htmlAudios = new Map();
 
       scene = new THREE.Scene();
       camera = new THREE.Camera();
@@ -121,11 +138,6 @@
           mesh.rotation.x = -Math.PI / 2;
           markerRoot.add(mesh);
         });
-
-        const audio = new Audio(audioFiles[i]);
-        audio.preload = 'auto';
-        audio.loop = repeatOptions[i] === "true";
-        htmlAudios.set(i, audio); // changed to use 'i' as key for all markers
       }
 
       document.getElementById('loader').style.display = 'none';
