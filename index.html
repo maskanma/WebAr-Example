@@ -2,15 +2,11 @@
 <html lang="uk">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
   <title>WebAR Буклет</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
 
-  <!-- Three.js та бібліотеки -->
+  <!-- Бібліотеки -->
   <script src="js/three.js"></script>
-  <script src="js/tween.umd.js"></script>
-  <script src="loaders/GLTF2Loader.js"></script>
-
-  <!-- JSARToolkit + Threex -->
   <script src="jsartoolkit5/artoolkit.min.js"></script>
   <script src="jsartoolkit5/artoolkit.api.js"></script>
   <script src="threex/threex-artoolkitsource.js"></script>
@@ -21,63 +17,57 @@
 
 <body style="margin: 0; overflow: hidden; font-family: sans-serif;">
 
-  <!-- Початковий екран -->
-  <div id="access" style="position: absolute; inset: 0; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; text-align: center; z-index: 2;">
-    Натисніть на екран для запуску<br>WebAR-буклету "Клавіатура"
+  <!-- Екран запуску -->
+  <div id="access" style="position: absolute; inset: 0; background: black; color: white; display: flex; align-items: center; justify-content: center; z-index: 2; text-align: center;">
+    Натисніть на екран для запуску<br>WebAR-буклету «Клавіатура»
   </div>
 
   <!-- Лоадер -->
-  <div id="loader" style="position: absolute; inset: 0; background: #fff; display: none; z-index: 1;">
+  <div id="loader" style="display: none; position: absolute; inset: 0; background: white; z-index: 1;">
     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-      <img src="data/spin.gif" alt="Loading..." style="width: 130px; height: 130px;"><br>Завантаження...
+      <img src="data/spin.gif" alt="Loading" style="width: 100px;"><br>Завантаження...
     </div>
   </div>
 
   <script>
     let readyToPlay = false;
+    let currentAudio = null;
 
     document.getElementById('access').addEventListener('click', () => {
       readyToPlay = true;
-      initiateExperience();
       document.getElementById('access').remove();
       document.getElementById('loader').style.display = 'block';
+      startAR();
     });
 
-    function initiateExperience() {
-      let scene, camera, renderer, clock, deltaTime, totalTime;
+    function startAR() {
+      let scene, camera, renderer, clock;
       let arToolkitSource, arToolkitContext;
-      let mainContainer;
-      let contentInitialized = false;
-      let barcodesSound = new Map();
-      let barcodesID = [1, 2, 3];
-      let audioLoader = new THREE.AudioLoader();
-      let listener = new THREE.AudioListener();
+      let markerRoots = [];
+      let barcodeValues = [1, 2, 3];
+      let imageFiles = ["Screenshot_1.jpg", "Screenshot_2.jpg", "Screenshot_3.jpg"];
+      let audioFiles = ["ПІБ Озвучка.ogg", "Автор Озвучка.ogg", "Опис Озвучка.ogg"];
+      let htmlAudios = new Map();
 
-      // Імена файлів
-      const images = ["Screenshot_1.jpg", "Screenshot_2.jpg", "Screenshot_3.jpg"];
-      const audios = ["ПІБ Озвучка.ogg", "Автор Озвучка.ogg", "Опис Озвучка.ogg"];
-      let contentPromises = [];
-
+      // THREE.js setup
       scene = new THREE.Scene();
-
       camera = new THREE.Camera();
       scene.add(camera);
-      camera.add(listener);
 
-      let ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
-      scene.add(ambientLight);
+      let light = new THREE.AmbientLight(0xffffff, 0.75);
+      scene.add(light);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setClearColor(new THREE.Color('lightgrey'), 0);
       renderer.setSize(640, 480);
-      renderer.domElement.style.position = 'absolute';
+      renderer.setClearColor(0x000000, 0);
       document.body.appendChild(renderer.domElement);
 
       clock = new THREE.Clock();
-      deltaTime = 0;
-      totalTime = 0;
 
+      // AR.js source
       arToolkitSource = new THREEx.ArToolkitSource({ sourceType: 'webcam' });
+      arToolkitSource.init(() => onResize());
+      window.addEventListener('resize', () => onResize());
 
       function onResize() {
         arToolkitSource.onResize();
@@ -87,13 +77,11 @@
         }
       }
 
-      arToolkitSource.init(onResize);
-      window.addEventListener('resize', onResize);
-
+      // AR.js context
       arToolkitContext = new THREEx.ArToolkitContext({
         cameraParametersUrl: 'data/camera_para.dat',
         detectionMode: 'mono_and_matrix',
-        matrixCodeType: "3x3",
+        matrixCodeType: '3x3',
         canvasWidth: 640,
         canvasHeight: 480
       });
@@ -102,61 +90,61 @@
         camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
       });
 
-      mainContainer = new THREE.Group();
-      scene.add(mainContainer);
-
-      // Створення маркерів і контенту
+      // Контент для кожного маркера
       for (let i = 0; i < 3; i++) {
-        let markerRoot = new THREE.Group();
-        mainContainer.add(markerRoot);
+        const markerRoot = new THREE.Group();
+        scene.add(markerRoot);
+        markerRoots.push(markerRoot);
 
+        // Прив'язка до маркера
         new THREEx.ArMarkerControls(arToolkitContext, markerRoot, {
-          type: "barcode",
-          barcodeValue: barcodesID[i]
+          type: 'barcode',
+          barcodeValue: barcodeValues[i]
         });
 
-        // Додавання зображення
-        let loader = new THREE.TextureLoader();
-        loader.load(images[i], texture => {
-          let geometry = new THREE.PlaneBufferGeometry(1, 1);
-          let material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
-          let mesh = new THREE.Mesh(geometry, material);
+        // Зображення
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.load(imageFiles[i], texture => {
+          const geometry = new THREE.PlaneBufferGeometry(1, 1);
+          const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+          const mesh = new THREE.Mesh(geometry, material);
           mesh.rotation.x = -Math.PI / 2;
           markerRoot.add(mesh);
         });
 
-        // Завантаження звуку
-        contentPromises.push(new Promise((resolve) => {
-          audioLoader.load(audios[i], buffer => {
-            const sound = new THREE.Audio(listener);
-            sound.setBuffer(buffer);
-            sound.setLoop(false);
-            barcodesSound.set(barcodesID[i], sound);
-            resolve();
-          });
-        }));
+        // Аудіо (HTML Audio)
+        const audio = new Audio(audioFiles[i]);
+        audio.preload = 'auto';
+        audio.loop = false;
+        htmlAudios.set(barcodeValues[i], audio);
       }
 
-      Promise.all(contentPromises).then(() => {
-        contentInitialized = true;
-        document.getElementById('loader').style.display = 'none';
-      });
+      document.getElementById('loader').style.display = 'none';
 
+      // Анімація
       function update() {
-        if (!arToolkitSource.ready) return;
-        arToolkitContext.update(arToolkitSource.domElement);
+        if (arToolkitSource.ready) {
+          arToolkitContext.update(arToolkitSource.domElement);
 
-        if (contentInitialized && readyToPlay) {
-          for (let id of barcodesID) {
-            let sound = barcodesSound.get(id);
-            let isVisible = arToolkitContext.arController.barcodeMarkers[id]?.inCurrent;
+          // Перевірка активних маркерів
+          for (let i = 0; i < barcodeValues.length; i++) {
+            const id = barcodeValues[i];
+            const isVisible = arToolkitContext.arController.barcodeMarkers[id]?.inCurrent;
+            const audio = htmlAudios.get(id);
 
-            if (sound) {
-              if (isVisible && !sound.isPlaying) {
-                sound.play();
-              } else if (!isVisible && sound.isPlaying) {
-                sound.stop();
+            if (isVisible && readyToPlay) {
+              if (currentAudio !== audio) {
+                if (currentAudio && !currentAudio.paused) {
+                  currentAudio.pause();
+                  currentAudio.currentTime = 0;
+                }
+                audio.play();
+                currentAudio = audio;
               }
+            } else if (!isVisible && currentAudio === audio) {
+              currentAudio.pause();
+              currentAudio.currentTime = 0;
+              currentAudio = null;
             }
           }
         }
@@ -168,8 +156,6 @@
 
       function animate() {
         requestAnimationFrame(animate);
-        deltaTime = clock.getDelta();
-        totalTime += deltaTime;
         update();
         render();
       }
