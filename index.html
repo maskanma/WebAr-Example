@@ -130,14 +130,14 @@
       document.getElementById('loader').style.display = 'none';
 
       function update() {
-        if (arToolkitSource.ready) {
+        if (arToolkitSource.ready && arToolkitContext.arController) {
           arToolkitContext.update(arToolkitSource.domElement);
 
           for (let i = 0; i < 3; i++) {
             const key = patternBarcode[i] === -1 ? patternNames[i] : patternBarcode[i];
             const markerVisible = patternBarcode[i] === -1
-              ? arToolkitContext.arController.patternMarkers[i]?.inCurrent
-              : arToolkitContext.arController.barcodeMarkers[key]?.inCurrent;
+              ? arToolkitContext.arController.patternMarkers?.[i]?.inCurrent
+              : arToolkitContext.arController.barcodeMarkers?.[key]?.inCurrent;
 
             const audio = htmlAudios.get(key);
 
